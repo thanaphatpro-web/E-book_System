@@ -1,6 +1,7 @@
 package screens;
 
 import app.Nav;
+import app.LibraryState;
 import components.PillButton;
 import components.SlimScrollBarUI;
 import data.Book;
@@ -16,8 +17,8 @@ import theme.Theme;
  * หน้าอ่านเนื้อหาของตอนที่เลือก
  *
  * <p>ตอนในข้อมูลเริ่มนับตำแหน่งจาก 0 แต่ข้อความบนหน้าจอเริ่มนับจาก 1
- * ตัวอย่างเช่น chapterIndex 0 จะแสดงเป็น "ตอนที่ 1" ปุ่มเปลี่ยนขนาดตัวอักษร
- * ปุ่มโหมดกลางคืน และปุ่มทำเครื่องหมายอ่านจบยังเป็นเพียงตัวอย่างหน้าตา</p>
+ * ตัวอย่างเช่น chapterIndex 0 จะแสดงเป็น "ตอนที่ 1" ผู้ใช้ปรับขนาดตัวอักษร
+ * สลับโหมดกลางคืน และทำเครื่องหมายอ่านจบได้ในระหว่างเปิดแอป</p>
  */
 public class ReaderScreen extends JFrame {
 
@@ -60,8 +61,7 @@ public class ReaderScreen extends JFrame {
     }
 
     /*
-     * สร้างแถบด้านบนที่มีปุ่มกลับ ชื่อหนังสือและตอน
-     * ปุ่มปรับตัวอักษรและโหมดกลางคืนยังไม่มีคำสั่งเปลี่ยนการแสดงผล
+     * สร้างแถบด้านบนที่มีปุ่มกลับ ชื่อหนังสือ ตอน และเครื่องมืออ่าน
      */
     private JPanel buildTopBar() {
         JLabel title = new JLabel(book.titleTh + " · ตอนที่ " + (chapterIndex + 1) + ": "
@@ -71,9 +71,21 @@ public class ReaderScreen extends JFrame {
 
         JPanel tools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         tools.setOpaque(false);
-        tools.add(new PillButton("A-", PillButton.OUTLINE));
-        tools.add(new PillButton("A+", PillButton.OUTLINE));
-        tools.add(new PillButton("โหมดกลางคืน", PillButton.OUTLINE));
+        PillButton smaller = new PillButton("A-", PillButton.OUTLINE);
+        PillButton larger = new PillButton("A+", PillButton.OUTLINE);
+        PillButton night = new PillButton(Theme.dark ? "โหมดกลางวัน" : "โหมดกลางคืน", PillButton.OUTLINE);
+        // ปรับตัวอักษรครั้งละสองพอยต์
+        smaller.addActionListener(e -> changeFont(-2));
+        larger.addActionListener(e -> changeFont(2));
+        // เปลี่ยนชุดสี แล้วสร้างหน้าผู้อ่านใหม่เพื่อใช้สีตามโหมด
+        night.addActionListener(e -> {
+            Theme.dark = !Theme.dark;
+            new ReaderScreen(book, chapterIndex);
+            dispose();
+        });
+        tools.add(smaller);
+        tools.add(larger);
+        tools.add(night);
 
         JPanel bar = new JPanel(new BorderLayout(12, 0));
         bar.setOpaque(false);
@@ -122,11 +134,12 @@ public class ReaderScreen extends JFrame {
 
         // แสดงเนื้อหาจากข้อมูลหนังสือ พร้อมรูปแบบตัวอักษรและย่อหน้า
         JTextPane text = new JTextPane();
+        readerText = text;
         text.setEditable(false);
         text.setOpaque(false);
         SimpleAttributeSet style = new SimpleAttributeSet();
         StyleConstants.setFontFamily(style, Fonts.read(20).getFamily());
-        StyleConstants.setFontSize(style, 22);
+        StyleConstants.setFontSize(style, readFontSize);
         StyleConstants.setForeground(style, Theme.text());
         StyleConstants.setLineSpacing(style, 0.8f);
         StyleConstants.setFirstLineIndent(style, 32);
@@ -148,10 +161,30 @@ public class ReaderScreen extends JFrame {
         scroll.getVerticalScrollBar().setPreferredSize(new Dimension(10, 0));
         paper.add(scroll, BorderLayout.CENTER);
 
-        // วางปุ่มไว้นอกกรอบตามแบบหน้าจอ ปัจจุบันปุ่มยังไม่บันทึกสถานะอ่าน
+        // วางปุ่มทำเครื่องหมายไว้นอกกรอบกระดาษ
         JPanel buttonWrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         buttonWrap.setOpaque(false);
-        buttonWrap.add(new PillButton("ทำเครื่องหมายว่าอ่านจบตอนนี้", PillButton.PRIMARY));
+        PillButton markRead = new PillButton("ทำเครื่องหมายว่าอ่านจบตอนนี้", PillButton.PRIMARY);
+        markRead.addActionListener(e -> {
+            try {
+                LibraryState.markChapterRead(book, chapterIndex);
+                markRead.setText("อ่านจบแล้ว ✓");
+                markRead.setEnabled(false);
+            } catch (IllegalStateException error) {
+                JOptionPane.showMessageDialog(this, error.getMessage(),
+                        "บันทึก CSV ไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        try {
+            if (LibraryState.isChapterRead(book, chapterIndex)) {
+                markRead.setText("อ่านจบแล้ว ✓");
+                markRead.setEnabled(false);
+            }
+        } catch (IllegalStateException error) {
+            JOptionPane.showMessageDialog(this, error.getMessage(),
+                    "อ่าน CSV ไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+        }
+        buttonWrap.add(markRead);
 
         JPanel paperCenter = new JPanel(new GridBagLayout());
         paperCenter.setOpaque(false);
@@ -163,6 +196,26 @@ public class ReaderScreen extends JFrame {
         wrapper.add(paperCenter, BorderLayout.CENTER);
         wrapper.add(buttonWrap, BorderLayout.SOUTH);
         return wrapper;
+    }
+
+    /** จำขนาดตัวอักษรไว้เมื่อสร้างหน้าผู้อ่านใหม่ */
+    private static int preferredFontSize = 22;
+
+    /** ขนาดตัวอักษรของหน้าที่เปิดอยู่ */
+    private int readFontSize = preferredFontSize;
+
+    /** ช่องข้อความที่กำลังแสดงเนื้อหาตอน */
+    private JTextPane readerText;
+
+    /** เพิ่มหรือลดขนาดตัวอักษร และจำค่าไว้สำหรับตอนถัดไป */
+    private void changeFont(int delta) {
+        readFontSize = Math.max(16, Math.min(32, readFontSize + delta));
+        preferredFontSize = readFontSize;
+        if (readerText != null) {
+            SimpleAttributeSet size = new SimpleAttributeSet();
+            StyleConstants.setFontSize(size, readFontSize);
+            readerText.getStyledDocument().setCharacterAttributes(0, readerText.getDocument().getLength(), size, false);
+        }
     }
 
     /*

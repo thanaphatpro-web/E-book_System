@@ -1,6 +1,8 @@
 package screens;
 
 import app.Nav;
+import account.AccountStorage;
+import app.UserSession;
 import components.BrandPanel;
 import components.InputField;
 import components.PillButton;
@@ -11,10 +13,9 @@ import theme.Fonts;
 import theme.Theme;
 
 /**
- * หน้าสมัครสมาชิกตัวอย่างของแอป
+ * หน้าสมัครสมาชิก
  *
- * <p>ฟอร์มนี้แสดงช่องข้อมูลและช่องยอมรับเงื่อนไขเพื่อสาธิตหน้าตา
- * แต่ยังไม่ตรวจข้อมูล ไม่สร้างบัญชี และไม่บันทึกข้อมูลที่กรอก</p>
+ * <p>ตรวจข้อมูลในฟอร์มและบันทึกบัญชีลง `data/users.csv`</p>
  */
 public class RegisterScreen extends JFrame {
 
@@ -55,19 +56,23 @@ public class RegisterScreen extends JFrame {
         title.setForeground(Theme.accent());
         addRow(form, title, 4);
 
-        JLabel welcome = new JLabel("สร้างบัญชีเพื่อเก็บรายการโปรดและรีวิวของคุณ");
+        JLabel welcome = new JLabel("สร้างบัญชีเพื่อเริ่มใช้งาน KU GoodBook");
         welcome.setFont(Fonts.body(14));
         welcome.setForeground(Theme.muted());
         addRow(form, welcome, 18);
 
         addRow(form, makeLabel("ชื่อผู้ใช้"), 6);
-        addRow(form, makeField("username", false), 12);
+        InputField usernameField = makeField("username", false);
+        addRow(form, usernameField, 12);
         addRow(form, makeLabel("อีเมล"), 6);
-        addRow(form, makeField("name@example.com", false), 12);
+        InputField emailField = makeField("name@example.com", false);
+        addRow(form, emailField, 12);
         addRow(form, makeLabel("รหัสผ่าน"), 6);
-        addRow(form, makeField("••••••••", true), 12);
+        InputField passwordField = makeField("••••••••", true);
+        addRow(form, passwordField, 12);
         addRow(form, makeLabel("ยืนยันรหัสผ่าน"), 6);
-        addRow(form, makeField("••••••••", true), 14);
+        InputField confirmField = makeField("••••••••", true);
+        addRow(form, confirmField, 14);
 
         JCheckBox accept = new JCheckBox("ฉันยอมรับเงื่อนไขการใช้งาน");
         accept.setOpaque(false);
@@ -79,8 +84,15 @@ public class RegisterScreen extends JFrame {
         PillButton registerButton = new PillButton("สมัครสมาชิก", PillButton.PRIMARY);
         registerButton.setFont(Fonts.bold(15));
         registerButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-        // ตัวอย่างนี้ยังไม่บันทึกบัญชี หลังคลิกจะแสดงหน้าเข้าสู่ระบบ
-        registerButton.addActionListener(e -> Nav.openLogin(this));
+        // รับค่าจากฟอร์ม แล้วส่งไปตรวจในเมธอดด้านล่าง
+        registerButton.addActionListener(e -> {
+            attemptRegister(
+                    usernameField.getTextComponent().getText(),
+                    emailField.getTextComponent().getText(),
+                    passwordField.getTextComponent().getText(),
+                    confirmField.getTextComponent().getText(),
+                    accept.isSelected());
+        });
         addRow(form, registerButton, 16);
 
         JPanel link = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
@@ -97,6 +109,69 @@ public class RegisterScreen extends JFrame {
         addRow(form, link, 0);
 
         setVisible(true);
+    }
+
+    /** ตรวจข้อมูลทีละข้อ แล้วบันทึกบัญชีลง users.csv เมื่อข้อมูลครบ */
+    private void attemptRegister(String username, String email, String password,
+                                 String confirmation, boolean acceptedTerms) {
+        username = username.trim();
+        email = email.trim();
+
+        // ตรวจช่องว่างก่อน เพื่อไม่ให้สมัครด้วยข้อมูลที่ยังกรอกไม่ครบ
+        if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            showRegistrationError("กรุณากรอกชื่อผู้ใช้ อีเมล และรหัสผ่านให้ครบ", "ข้อมูลไม่ครบ");
+            return;
+        }
+
+        // ตรวจรูปแบบอีเมลเบื้องต้น
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            showRegistrationError("กรุณากรอกอีเมลให้ถูกต้อง", "อีเมลไม่ถูกต้อง");
+            return;
+        }
+
+        // รหัสผ่านต้องยาวอย่างน้อยหกตัวอักษร
+        if (password.length() < 6) {
+            showRegistrationError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร", "รหัสผ่านสั้นเกินไป");
+            return;
+        }
+
+        // ช่องยืนยันต้องตรงกับรหัสผ่าน
+        if (!password.equals(confirmation)) {
+            showRegistrationError("รหัสผ่านและการยืนยันไม่ตรงกัน", "ยืนยันรหัสผ่าน");
+            return;
+        }
+
+        // ต้องยอมรับเงื่อนไขก่อนสมัคร
+        if (!acceptedTerms) {
+            showRegistrationError("กรุณายอมรับเงื่อนไขการใช้งาน", "ยังไม่ยอมรับเงื่อนไข");
+            return;
+        }
+
+        // หากอีเมลซ้ำ ให้ผู้ใช้กลับไปเข้าสู่ระบบ
+        boolean wasRegistered;
+        try {
+            wasRegistered = UserSession.register(username, email, password);
+        } catch (IllegalStateException error) {
+            showRegistrationError(error.getMessage(), "บันทึก users.csv ไม่สำเร็จ");
+            return;
+        }
+
+        if (!wasRegistered) {
+            showRegistrationError("อีเมลนี้มีบัญชีแล้ว กรุณาเข้าสู่ระบบ", "มีบัญชีแล้ว");
+            return;
+        }
+
+        // สมัครสำเร็จและเข้าสู่ระบบแล้ว จึงไปหน้าแรก
+        JOptionPane.showMessageDialog(this,
+                "สมัครสมาชิกสำเร็จแล้ว\nบันทึกบัญชีไว้ที่:\n"
+                        + AccountStorage.userFilePath(),
+                "สมัครสมาชิกสำเร็จ", JOptionPane.INFORMATION_MESSAGE);
+        Nav.openHome(this);
+    }
+
+    /** แสดงข้อความผิดพลาดในรูปแบบเดียวกันทุกกรณี */
+    private void showRegistrationError(String message, String title) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.WARNING_MESSAGE);
     }
 
     /**

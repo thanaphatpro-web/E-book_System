@@ -1,27 +1,39 @@
 package screens;
 
+import app.Nav;
 import components.InputField;
 import components.Sidebar;
 import components.SlimScrollBarUI;
+import data.Book;
 import data.BookData;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import theme.Fonts;
 import theme.Theme;
 
 /**
  * หน้าแสดงชื่อหมวดหมู่และจำนวนหนังสือในแต่ละหมวด
  *
- * <p>จำนวนหนังสือดึงจาก BookData ตอนสร้างหน้า ส่วนช่องค้นหาเป็นเพียง
- * ตัวอย่างหน้าตาและยังไม่กรองรายการ</p>
+ * <p>ค้นหาหมวด หนังสือ และผู้แต่งได้ การ์ดหมวดใช้เลือกหนังสือเพื่อเปิดหน้า
+ * รายละเอียด โดยไม่แก้ข้อมูลต้นฉบับใน BookData</p>
  */
 public class CategoriesScreen extends JFrame {
 
     /** ชื่อหมวดที่ต้องการแสดงบนหน้านี้ */
     private static final String[] NAMES = {"ทั้งหมด", "วรรณกรรม", "แฟนตาซี", "ปรัชญา", "ทั่วไป", "การศึกษา"};
 
-    /** สร้างหน้าต่างหมวดหมู่และนับจำนวนหนังสือจากข้อมูลตัวอย่าง */
+    /** ช่องค้นหาหมวด หนังสือ และผู้แต่ง */
+    private final InputField search = new InputField("ค้นหาหมวด หนังสือ หรือผู้แต่ง", false);
+
+    /** พื้นที่วางการ์ดหมวดที่ตรงกับคำค้นหา */
+    private final JPanel grid = new JPanel(new GridLayout(0, 3, 18, 18));
+
+    /** สร้างหน้าหมวดหมู่ พร้อมช่องค้นหาและการ์ดหนังสือ */
     public CategoriesScreen() {
         Fonts.install();
         setTitle("KU Goodbook - หมวดหมู่");
@@ -38,7 +50,7 @@ public class CategoriesScreen extends JFrame {
         main.setBorder(new EmptyBorder(22, 28, 0, 20));
         add(main, BorderLayout.CENTER);
 
-        // วางชื่อและคำอธิบายไว้ซ้าย ส่วนช่องค้นหาตัวอย่างอยู่ทางขวา
+        // วางชื่อและคำอธิบายไว้ซ้าย และช่องค้นหาไว้ทางขวา
         JLabel title = new JLabel("หมวดหมู่");
         title.setFont(Fonts.title(26));
         title.setForeground(Theme.accent());
@@ -50,7 +62,6 @@ public class CategoriesScreen extends JFrame {
         texts.add(title);
         texts.add(sub);
 
-        InputField search = new InputField("ค้นหาชื่อเรื่อง ผู้แต่ง", false);
         search.setPreferredSize(new Dimension(320, 44));
         JPanel searchWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 6));
         searchWrap.setOpaque(false);
@@ -62,14 +73,17 @@ public class CategoriesScreen extends JFrame {
         topBar.add(searchWrap, BorderLayout.EAST);
         main.add(topBar, BorderLayout.NORTH);
 
-        // สร้างการ์ดตามรายชื่อหมวดที่กำหนดไว้ด้านบน
-        JPanel grid = new JPanel(new GridLayout(0, 3, 18, 18));
+        // สร้างการ์ดหมวดครั้งแรก แล้วตั้งให้สร้างใหม่ทุกครั้งที่ข้อความค้นหาเปลี่ยน
         grid.setOpaque(false);
-        for (String name : NAMES) {
-            // byCategory("ทั้งหมด") คืนหนังสือทุกเรื่อง ส่วนหมวดอื่นคืนเฉพาะที่ตรงกัน
-            int count = BookData.byCategory(name).size();
-            grid.add(new CategoryTile(name, count + " เรื่อง", colorOf(name)));
-        }
+        refreshCategories();
+        search.getTextComponent().getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { refreshCategories(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { refreshCategories(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { refreshCategories(); }
+        });
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(0, 0, 24, 10));
@@ -88,10 +102,42 @@ public class CategoriesScreen extends JFrame {
         setVisible(true);
     }
 
+    /** ลบการ์ดเก่า แล้วแสดงเฉพาะหมวดที่มีชื่อหรือหนังสือตรงกับคำค้นหา */
+    private void refreshCategories() {
+        String query = search.getTextComponent().getText().trim().toLowerCase();
+        grid.removeAll();
+        for (String name : NAMES) {
+            List<Book> books = findBooks(name, query);
+            if (!books.isEmpty()) {
+                grid.add(new CategoryTile(name, books, colorOf(name)));
+            }
+        }
+        if (grid.getComponentCount() == 0) {
+            grid.add(new JLabel("ไม่พบหมวดหรือหนังสือที่ค้นหา"));
+        }
+        grid.revalidate();
+        grid.repaint();
+    }
+
+    /** คืนหนังสือในหมวดที่ตรงกับคำค้นหา ถ้าคำค้นหาว่างจะคืนทั้งหมดในหมวด */
+    private List<Book> findBooks(String category, String query) {
+        List<Book> matchingBooks = new ArrayList<>();
+        List<Book> categoryBooks = BookData.byCategory(category);
+
+        for (Book book : categoryBooks) {
+            String searchableText = category + " " + book.titleTh + " " + book.titleEn + " " + book.author;
+            if (query.isEmpty() || searchableText.toLowerCase().contains(query)) {
+                matchingBooks.add(book);
+            }
+        }
+        return matchingBooks;
+    }
+
     /*
      * ใช้สีปกของหนังสือเล่มแรกในหมวดเพื่อให้การ์ดสื่อถึงเรื่องในหมวดนั้น
      * หมวด "ทั้งหมด" หรือหมวดที่ยังไม่มีหนังสือจะใช้สีแดงหลักของแอป
      */
+    /** เลือกสีจากปกเล่มแรกในหมวด หรือใช้สีหลักถ้าไม่มีหนังสือ */
     private static Color colorOf(String category) {
         if (category.equals("ทั้งหมด") || BookData.byCategory(category).isEmpty()) {
             return new Color(0x8B1E24);
@@ -105,14 +151,50 @@ public class CategoriesScreen extends JFrame {
      */
     private static class CategoryTile extends JComponent {
         private final String name;
-        private final String count;
+        private final List<Book> books;
         private final Color color;
 
-        CategoryTile(String name, String count, Color color) {
+        /** สร้างการ์ดและผูกการคลิกเพื่อเลือกหนังสือในหมวด */
+        CategoryTile(String name, List<Book> books, Color color) {
             this.name = name;
-            this.count = count;
+            this.books = books;
             this.color = color;
             setPreferredSize(new Dimension(300, 150));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent e) {
+                    chooseBook();
+                }
+            });
+        }
+
+        /** เปิดกล่องเลือกชื่อหนังสือ แล้วไปหน้ารายละเอียดของเล่มที่เลือก */
+        private void chooseBook() {
+            String[] titles = new String[books.size()];
+            for (int i = 0; i < books.size(); i++) {
+                titles[i] = books.get(i).titleTh;
+            }
+
+            String selectedTitle = (String) JOptionPane.showInputDialog(
+                    this,
+                    "เลือกหนังสือเพื่อเปิดรายละเอียด",
+                    "หมวด " + name,
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    titles,
+                    titles[0]);
+
+            if (selectedTitle == null) {
+                return;
+            }
+
+            for (Book book : books) {
+                if (book.titleTh.equals(selectedTitle)) {
+                    Nav.openDetail(this, book);
+                    return;
+                }
+            }
         }
 
         @Override
@@ -148,7 +230,7 @@ public class CategoriesScreen extends JFrame {
             g2.setFont(Fonts.title(24));
             g2.drawString(name, 28, h - 52);
             g2.setFont(Fonts.body(14));
-            g2.drawString(count, 28, h - 28);
+            g2.drawString(books.size() + " เรื่อง · กดเพื่อเลือกหนังสือ", 28, h - 28);
             g2.dispose();
         }
     }

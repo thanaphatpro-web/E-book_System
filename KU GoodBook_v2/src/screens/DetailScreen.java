@@ -1,6 +1,8 @@
 package screens;
 
 import app.Nav;
+import app.LibraryState;
+import app.UserSession;
 import components.BookCover;
 import components.HintTextBox;
 import components.PillButton;
@@ -8,6 +10,7 @@ import components.Sidebar;
 import components.SlimScrollBarUI;
 import data.Book;
 import data.BookData;
+import storage.CsvStorage;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -17,14 +20,11 @@ import theme.Theme;
 /**
  * หน้าแสดงข้อมูลหนังสือ สารบัญตอน และรีวิว
  *
- * <p>หน้านี้ใช้ข้อมูลจาก Book ที่ส่งเข้ามา และแบ่งเนื้อหาเป็นการ์ด
- * เพื่อให้อ่านแยกส่วนได้ง่าย สถานะอ่าน รีวิว และปุ่มรายการโปรดเป็นข้อมูลตัวอย่าง
- * ยังไม่ได้บันทึกการเปลี่ยนแปลงของผู้ใช้</p>
+ * <p>หน้านี้ใช้ข้อมูลจาก Book ที่ส่งเข้ามา ผู้ใช้เลือกตอน ทำรีวิว
+ * และจัดการรายการโปรดได้ ข้อมูลรีวิวเก็บใน `reviews.csv`
+ * ส่วนรายการโปรดและสถานะอ่านเก็บแยกตามอีเมลใน CSV</p>
  */
 public class DetailScreen extends JFrame {
-
-    /** จำนวนตอนแรกที่แสดงว่าอ่านแล้ว เพื่อใช้สาธิตหน้าจอ */
-    private static final int DEMO_READ_COUNT = 3;
 
     /** หนังสือที่กำลังแสดง */
     private final Book book;
@@ -92,7 +92,7 @@ public class DetailScreen extends JFrame {
 
     /*
      * แสดงปกไว้ทางซ้าย ส่วนชื่อ ผู้แต่ง สถานะ คะแนน และเรื่องย่ออยู่ทางขวา
-     * ปุ่มเพิ่มรายการโปรดยังเป็นเพียงตัวอย่างและยังไม่แก้ข้อมูล
+     * ปุ่มรายการโปรดจะบันทึกสถานะหนังสือใน `favorites.csv`
      */
     private JComponent buildHeroCard() {
         JPanel card = new JPanel(new BorderLayout(26, 0));
@@ -128,10 +128,11 @@ public class DetailScreen extends JFrame {
         metaRow.add(statusChip);
         head.add(metaRow);
 
-        JLabel star = new JLabel("★");
+        JLabel star = new JLabel(book.reviews.isEmpty() ? "" : "★");
         star.setFont(new Font(Font.DIALOG, Font.BOLD, 14));
         star.setForeground(Theme.accent());
-        JLabel rating = new JLabel(book.rating + "");
+        JLabel rating = new JLabel(book.reviews.isEmpty() ? "ยังไม่มีคะแนน"
+                : String.format(java.util.Locale.ROOT, "%.1f", book.averageReviewRating()));
         rating.setFont(Fonts.bold(14));
         rating.setForeground(Theme.accent());
         JPanel ratingRow = new JPanel();
@@ -141,7 +142,16 @@ public class DetailScreen extends JFrame {
         ratingRow.add(Box.createHorizontalStrut(4));
         ratingRow.add(rating);
         ratingRow.add(Box.createHorizontalStrut(16));
-        ratingRow.add(new PillButton("เพิ่มในรายการโปรด", PillButton.OUTLINE));
+        PillButton favorite = new PillButton(LibraryState.isFavorite(book) ? "นำออกจากรายการโปรด" : "เพิ่มในรายการโปรด", PillButton.OUTLINE);
+        favorite.addActionListener(e -> {
+            try {
+                LibraryState.toggleFavorite(book);
+                favorite.setText(LibraryState.isFavorite(book) ? "นำออกจากรายการโปรด" : "เพิ่มในรายการโปรด");
+            } catch (IllegalStateException error) {
+                showStorageError(error);
+            }
+        });
+        ratingRow.add(favorite);
         head.add(ratingRow);
 
         // กำหนดความกว้างของเรื่องย่อเพื่อให้ข้อความตัดเป็นบรรทัดอ่านง่าย
@@ -165,10 +175,7 @@ public class DetailScreen extends JFrame {
         return card;
     }
 
-    /*
-     * สร้างสารบัญจากชื่อทุกตอนของหนังสือ
-     * สถานะสามตอนแรกและตอนถัดไปเป็นค่าจำลอง ไม่ได้บันทึกความคืบหน้าจริง
-     */
+    /** สร้างสารบัญ พร้อมอ่านสถานะของแต่ละตอนจาก read_chapters.csv */
     private JComponent buildChapterCard() {
         JPanel card = new JPanel(new BorderLayout(0, 12));
         card.setBackground(Theme.card());
@@ -196,8 +203,14 @@ public class DetailScreen extends JFrame {
      * @return แถวสารบัญที่คลิกเพื่อเปิดหน้าอ่านตอนนี้ได้
      */
     private JComponent makeChapterTile(int index) {
-        boolean read = index < DEMO_READ_COUNT;
-        boolean current = index == DEMO_READ_COUNT;
+        boolean read = false;
+        boolean current = false;
+        try {
+            read = LibraryState.isChapterRead(book, index);
+            current = !read && index == LibraryState.nextUnreadChapter(book);
+        } catch (IllegalStateException error) {
+            showStorageError(error);
+        }
 
         Color fill = read ? Theme.readBg() : Theme.tile();
         Color border = current ? Theme.accent() : (read ? null : Theme.line());
@@ -225,10 +238,7 @@ public class DetailScreen extends JFrame {
         return tile;
     }
 
-    /*
-     * แสดงคะแนนเฉลี่ยและรายการรีวิวที่มีอยู่ในข้อมูลหนังสือ
-     * รีวิวเป็นข้อมูลตัวอย่างที่เตรียมไว้ใน BookData
-     */
+    /** แสดงค่าเฉลี่ยคะแนนจากรีวิวที่โหลดมาจาก `reviews.csv` */
     private JComponent buildReviewCard() {
         JPanel card = new JPanel(new BorderLayout(0, 10));
         card.setBackground(Theme.card());
@@ -248,10 +258,11 @@ public class DetailScreen extends JFrame {
         headRow.add(count, BorderLayout.EAST);
 
         // แยกสัญลักษณ์ดาว คะแนนตัวเลข และคำอธิบายออกจากกัน
-        JLabel bigStars = new JLabel(stars(5));
+        JLabel bigStars = new JLabel(stars((int) Math.round(book.averageReviewRating())));
         bigStars.setFont(new Font(Font.DIALOG, Font.PLAIN, 28));
         bigStars.setForeground(Theme.gold());
-        JLabel score = new JLabel(String.valueOf(book.rating));
+        JLabel score = new JLabel(book.reviews.isEmpty() ? "—"
+                : String.format(java.util.Locale.ROOT, "%.1f", book.averageReviewRating()));
         score.setFont(Fonts.bold(26));
         score.setForeground(Theme.text());
         JLabel avg = new JLabel("คะแนนเฉลี่ย");
@@ -269,20 +280,24 @@ public class DetailScreen extends JFrame {
         top.add(summary, BorderLayout.CENTER);
         card.add(top, BorderLayout.NORTH);
 
-        // สร้างหนึ่งแถวต่อหนึ่งรีวิวที่บันทึกไว้ในข้อมูลตัวอย่าง
+        // สร้างหนึ่งแถวต่อหนึ่งรีวิวที่ผู้ใช้ส่งไว้
         JPanel list = new JPanel(new GridLayout(0, 1, 0, 0));
         list.setOpaque(false);
         for (String[] review : book.reviews) {
             list.add(makeReviewRow(review[0], Integer.parseInt(review[1]), review[2]));
         }
+        if (book.reviews.isEmpty()) {
+            JLabel empty = new JLabel("ยังไม่มีรีวิว เป็นคนแรกที่เขียนรีวิวได้เลย");
+            empty.setFont(Fonts.body(14));
+            empty.setForeground(Theme.muted());
+            empty.setBorder(new EmptyBorder(12, 0, 6, 0));
+            list.add(empty);
+        }
         card.add(list, BorderLayout.CENTER);
         return card;
     }
 
-    /*
-     * จัดข้อมูลรีวิวหนึ่งรายการให้อ่านได้ในแถวเดียว
-     * ชื่อและตัวอักษรแรกใช้แทนข้อมูลผู้รีวิวในตัวอย่าง
-     */
+    /** จัดชื่อ คะแนน และข้อความของรีวิวหนึ่งรายการให้อ่านได้ในแถวเดียว */
     private JComponent makeReviewRow(String name, int starCount, String text) {
         JPanel row = new JPanel(new BorderLayout(14, 0));
         row.setOpaque(false);
@@ -325,8 +340,7 @@ public class DetailScreen extends JFrame {
     }
 
     /*
-     * สร้างหน้าตาฟอร์มเขียนรีวิว ซึ่งประกอบด้วยการให้คะแนนและช่องข้อความ
-     * ปุ่มดาวและปุ่มส่งยังไม่ได้เก็บคะแนนหรือส่งรีวิวจริง
+     * สร้างฟอร์มเขียนรีวิวพร้อมปุ่มเลือกคะแนนและส่งข้อความ
      */
     private JComponent buildWriteReviewCard() {
         JPanel card = new JPanel(new BorderLayout(0, 12));
@@ -346,16 +360,56 @@ public class DetailScreen extends JFrame {
         starTitle.setFont(Fonts.bold(13));
         starTitle.setForeground(Theme.text());
         starRow.add(starTitle);
+        // ใช้อาร์เรย์หนึ่งช่องเพื่อให้ action ของปุ่มอัปเดตคะแนนที่เลือกได้
+        final int[] selectedRating = {5};
+        JLabel selectedLabel = new JLabel("เลือกแล้ว 5 ดาว");
+        selectedLabel.setFont(Fonts.body(12));
+        selectedLabel.setForeground(Theme.muted());
+        PillButton[] starButtons = new PillButton[5];
         for (int n = 1; n <= 5; n++) {
-            starRow.add(new PillButton(n + " ดาว", n == 5 ? PillButton.PRIMARY : PillButton.OUTLINE));
+            final int rating = n;
+            PillButton star = new PillButton((n == 5 ? "★ " : "☆ ") + n + " ดาว",
+                    n == 5 ? PillButton.PRIMARY : PillButton.OUTLINE);
+            starButtons[n - 1] = star;
+            star.setToolTipText("ให้คะแนน " + n + " ดาว");
+            star.addActionListener(e -> {
+                // บันทึกคะแนนที่เลือก แล้วเปลี่ยนสัญลักษณ์ให้เห็นปุ่มปัจจุบัน
+                selectedRating[0] = rating;
+                selectedLabel.setText("เลือกแล้ว " + rating + " ดาว");
+                for (int i = 0; i < starButtons.length; i++) {
+                    boolean selected = i + 1 == rating;
+                    starButtons[i].setText((selected ? "★ " : "☆ ") + (i + 1) + " ดาว");
+                    starButtons[i].setForeground(selected ? Theme.accent() : Theme.text());
+                }
+            });
+            starRow.add(star);
         }
+        starRow.add(selectedLabel);
 
         // ช่องพิมพ์ความคิดเห็น
         HintTextBox areaBox = new HintTextBox(4, 40, "แบ่งปันความรู้สึกของคุณต่อเรื่องนี้…");
 
         JPanel sendRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         sendRow.setOpaque(false);
-        sendRow.add(new PillButton("ส่งรีวิว", PillButton.PRIMARY));
+        PillButton send = new PillButton("ส่งรีวิว", PillButton.PRIMARY);
+        // ส่งรีวิวเมื่อผู้ใช้กรอกข้อความแล้วเท่านั้น
+        send.addActionListener(e -> {
+            String reviewText = areaBox.getTextArea().getText().trim();
+            if (reviewText.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "กรุณาเขียนข้อความรีวิวก่อนส่ง", "ยังไม่มีรีวิว", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            try {
+                CsvStorage.addReview(book, UserSession.username(), UserSession.accountKey(),
+                        selectedRating[0], reviewText);
+                // addReview บันทึกและโหลดรีวิวจาก CSV กลับมาแล้ว
+                Nav.openDetail(this, book);
+            } catch (java.io.IOException error) {
+                JOptionPane.showMessageDialog(this, "บันทึกรีวิวไม่สำเร็จ: " + error.getMessage(),
+                        "เขียน CSV ไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        sendRow.add(send);
 
         JPanel form = new JPanel(new BorderLayout(0, 12));
         form.setOpaque(false);
@@ -364,6 +418,12 @@ public class DetailScreen extends JFrame {
         form.add(sendRow, BorderLayout.SOUTH);
         card.add(form, BorderLayout.CENTER);
         return card;
+    }
+
+    /** แจ้งผู้ใช้เมื่ออ่านหรือเขียนไฟล์ข้อมูลไม่สำเร็จ */
+    private void showStorageError(IllegalStateException error) {
+        JOptionPane.showMessageDialog(this, error.getMessage(), "อ่าน/เขียน CSV ไม่สำเร็จ",
+                JOptionPane.ERROR_MESSAGE);
     }
 
     /*

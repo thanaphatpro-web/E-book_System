@@ -1,6 +1,9 @@
 package app;
 
 import screens.LoginScreen;
+import storage.CsvStorage;
+import account.AccountStorage;
+import java.io.IOException;
 
 import javax.swing.*;
 
@@ -27,6 +30,17 @@ public class Main {
      * @param args ข้อความที่ส่งมาตอนเปิดโปรแกรม ปัจจุบันยังไม่ได้ใช้
      */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(LoginScreen::new);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                // เตรียมโฟลเดอร์และอ่านรีวิวก่อนเปิดหน้าจอแรก
+                AccountStorage.initialize();
+                CsvStorage.initialize();
+                new LoginScreen();
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(null,
+                        "เตรียมไฟล์ CSV ไม่สำเร็จ: " + e.getMessage(),
+                        "เปิดโปรแกรมไม่ได้", JOptionPane.ERROR_MESSAGE);
+            }
+        });
     }
 }

@@ -5,28 +5,38 @@ import components.InputField;
 import components.PillButton;
 import components.Sidebar;
 import components.SlimScrollBarUI;
-import data.BookData;
+import app.LibraryState;
+import data.Book;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.util.ArrayList;
+import java.util.List;
 import theme.Fonts;
 import theme.Theme;
 
 /**
- * หน้าแสดงรายการหนังสือโปรดตัวอย่าง
+ * หน้าแสดงรายการหนังสือโปรดของผู้ใช้ปัจจุบัน
  *
- * <p>รายการที่เลือกเก็บไว้กำหนดด้วยลำดับใน BookData.ALL
- * ปุ่มค้นหา ปุ่มเรียง และปุ่มลบเป็นเพียงหน้าตาตัวอย่าง ยังไม่เปลี่ยนข้อมูลจริง</p>
+ * <p>รายการโปรดอ่านและบันทึกใน `data/favorites.csv` แยกตามอีเมลผู้ใช้</p>
  */
 public class FavoritesScreen extends JFrame {
 
-    /*
-     * เลือกหนังสือจากตำแหน่งใน BookData.ALL โดยเริ่มตำแหน่งแรกที่ 0
-     * เมื่อต้องการเปลี่ยนรายการโปรดตัวอย่าง ให้แก้ตัวเลขในรายการนี้
-     */
-    private static final int[] FAVORITES = {0, 1, 5, 2, 6, 7};
+    /** ช่องค้นหาเฉพาะหนังสือในรายการโปรด */
+    private final InputField search = new InputField("ค้นหาในรายการโปรด", false);
 
-    /** สร้างหน้าต่างรายการโปรดและแสดงหนังสือตามตำแหน่งที่กำหนดไว้ */
+    /** ตารางการ์ดรายการโปรด */
+    private final JPanel grid = new JPanel(new GridLayout(0, 3, 18, 18));
+
+    /** ข้อความแจ้งจำนวนหนังสือที่อยู่ในรายการโปรด */
+    private final JLabel sub = new JLabel();
+
+    /** วิธีเรียงรายการปัจจุบัน */
+    private String sort = "ลำดับเดิม";
+
+    /** สร้างหน้าต่างรายการโปรด พร้อมตัวกรองและตัวเลือกเรียง */
     public FavoritesScreen() {
         Fonts.install();
         setTitle("KU Goodbook - รายการโปรด");
@@ -43,11 +53,11 @@ public class FavoritesScreen extends JFrame {
         main.setBorder(new EmptyBorder(22, 28, 0, 20));
         add(main, BorderLayout.CENTER);
 
-        // แสดงชื่อหน้าและจำนวนหนังสือ พร้อมช่องค้นหาและตัวเลือกเรียงตัวอย่าง
+        // แสดงจำนวนปัจจุบัน พร้อมช่องค้นหาและตัวเลือกเรียง
         JLabel title = new JLabel("รายการโปรดของคุณ");
         title.setFont(Fonts.title(26));
         title.setForeground(Theme.accent());
-        JLabel sub = new JLabel("คุณมีหนังสือที่บันทึกไว้ทั้งหมด " + FAVORITES.length + " เรื่อง");
+        updateCount();
         sub.setFont(Fonts.body(14));
         sub.setForeground(Theme.muted());
         JPanel texts = new JPanel(new GridLayout(2, 1));
@@ -55,7 +65,6 @@ public class FavoritesScreen extends JFrame {
         texts.add(title);
         texts.add(sub);
 
-        InputField search = new InputField("ค้นหาในรายการโปรด", false);
         search.setPreferredSize(new Dimension(320, 44));
         JPanel searchWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 6));
         searchWrap.setOpaque(false);
@@ -68,7 +77,12 @@ public class FavoritesScreen extends JFrame {
 
         JPanel sortRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         sortRow.setOpaque(false);
-        sortRow.add(new PillButton("เรียงตาม: เพิ่มล่าสุด", PillButton.OUTLINE));
+        JComboBox<String> sortBox = new JComboBox<>(new String[]{"ลำดับเดิม", "ชื่อเรื่อง A-Z", "คะแนนรีวิวสูงสุด"});
+        sortBox.addActionListener(e -> {
+            sort = (String) sortBox.getSelectedItem();
+            refresh();
+        });
+        sortRow.add(sortBox);
 
         JPanel top = new JPanel(new BorderLayout(0, 12));
         top.setOpaque(false);
@@ -76,12 +90,17 @@ public class FavoritesScreen extends JFrame {
         top.add(sortRow, BorderLayout.CENTER);
         main.add(top, BorderLayout.NORTH);
 
-        // สร้างการ์ดสำหรับหนังสือที่อยู่ในรายการโปรดตัวอย่าง
-        JPanel grid = new JPanel(new GridLayout(0, 3, 18, 18));
+        // สร้างการ์ดจากรายการโปรดของผู้ใช้ปัจจุบัน
         grid.setOpaque(false);
-        for (int index : FAVORITES) {
-            grid.add(new BookCard(BookData.ALL.get(index), true));
-        }
+        refresh();
+        search.getTextComponent().getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { refresh(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { refresh(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { refresh(); }
+        });
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(0, 0, 24, 10));
@@ -98,6 +117,83 @@ public class FavoritesScreen extends JFrame {
         main.add(scroll, BorderLayout.CENTER);
 
         setVisible(true);
+    }
+
+    /** อัปเดตจำนวนรายการโปรดที่แสดงใต้หัวข้อ */
+    private void updateCount() {
+        try {
+            sub.setText("คุณมีหนังสือที่บันทึกไว้ " + LibraryState.favorites().size() + " เรื่อง");
+        } catch (IllegalStateException error) {
+            showStorageError(error);
+        }
+    }
+
+    /** สร้างรายการการ์ดใหม่หลังค้นหา เรียง หรือลบหนังสือ */
+    private void refresh() {
+        String query = search.getTextComponent().getText().trim().toLowerCase();
+        List<Book> books = new ArrayList<>();
+
+        // คัดเฉพาะเล่มที่ตรงกับคำค้นหา
+        List<Book> savedFavorites;
+        try {
+            savedFavorites = LibraryState.favorites();
+        } catch (IllegalStateException error) {
+            showStorageError(error);
+            savedFavorites = new ArrayList<>();
+        }
+
+        for (Book book : savedFavorites) {
+            String searchableText = book.titleTh + " " + book.titleEn + " " + book.author;
+            if (searchableText.toLowerCase().contains(query)) {
+                books.add(book);
+            }
+        }
+
+        sortBooks(books);
+        grid.removeAll();
+        for (Book book : books) {
+            grid.add(new BookCard(book, true, () -> {
+                // ปุ่มลบจะเปลี่ยนสถานะ แล้ววาดหน้าใหม่ให้รายการอัปเดตทันที
+                try {
+                    LibraryState.toggleFavorite(book);
+                    updateCount();
+                    refresh();
+                } catch (IllegalStateException error) {
+                    showStorageError(error);
+                }
+            }));
+        }
+        if (books.isEmpty()) {
+            grid.add(new JLabel("ยังไม่มีหนังสือในรายการนี้"));
+        }
+        grid.revalidate();
+        grid.repaint();
+    }
+
+    /** แสดงข้อความเมื่ออ่านหรือเขียนรายการโปรดใน CSV ไม่สำเร็จ */
+    private void showStorageError(IllegalStateException error) {
+        JOptionPane.showMessageDialog(this, error.getMessage(),
+                "อ่าน/เขียน CSV ไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+    }
+
+    /** เรียงรายการแบบง่ายตามชื่อหรือคะแนนรีวิว */
+    private void sortBooks(List<Book> books) {
+        for (int i = 0; i < books.size(); i++) {
+            for (int j = i + 1; j < books.size(); j++) {
+                boolean shouldSwap = false;
+                if ("ชื่อเรื่อง A-Z".equals(sort)) {
+                    shouldSwap = books.get(i).titleTh.compareTo(books.get(j).titleTh) > 0;
+                } else if ("คะแนนรีวิวสูงสุด".equals(sort)) {
+                    shouldSwap = books.get(i).averageReviewRating() < books.get(j).averageReviewRating();
+                }
+
+                if (shouldSwap) {
+                    Book firstBook = books.get(i);
+                    books.set(i, books.get(j));
+                    books.set(j, firstBook);
+                }
+            }
+        }
     }
 
     /**

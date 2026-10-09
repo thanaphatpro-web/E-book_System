@@ -24,6 +24,17 @@ public class BookCard extends JPanel {
      * @param showDelete กำหนดว่าจะให้แสดงปุ่มลบรายการโปรดหรือไม่
      */
     public BookCard(Book book, boolean showDelete) {
+        this(book, showDelete, null);
+    }
+
+    /**
+     * สร้างการ์ดหนังสือ และกำหนดคำสั่งให้ปุ่มลบถ้ามี
+     *
+     * @param book ข้อมูลหนังสือที่ต้องการแสดง
+     * @param showDelete ระบุว่าต้องแสดงปุ่มลบรายการโปรดหรือไม่
+     * @param deleteAction คำสั่งที่เรียกเมื่อกดปุ่มลบ
+     */
+    public BookCard(Book book, boolean showDelete, Runnable deleteAction) {
         super(new BorderLayout(0, 10));
         setBackground(Theme.card());
         setBorder(BorderFactory.createCompoundBorder(
@@ -54,7 +65,9 @@ public class BookCard extends JPanel {
         details.add(author);
 
         // วางคะแนนกับสถานะคนละด้านเพื่อให้อ่านเทียบข้อมูลได้สะดวก
-        JLabel rating = new JLabel("★ " + book.rating);
+        String ratingText = book.reviews.isEmpty() ? "ยังไม่มีคะแนน"
+                : String.format(java.util.Locale.ROOT, "★ %.1f", book.averageReviewRating());
+        JLabel rating = new JLabel(ratingText);
         rating.setFont(new Font(Font.DIALOG, Font.BOLD, 13));
         rating.setForeground(Theme.accent());
         JLabel status = new JLabel(book.status);
@@ -72,7 +85,11 @@ public class BookCard extends JPanel {
             JPanel deleteRow = new JPanel(new BorderLayout());
             deleteRow.setOpaque(false);
             deleteRow.setBorder(new EmptyBorder(6, 0, 0, 0));
-            deleteRow.add(new PillButton("ลบรายการโปรด", PillButton.DANGER));
+            PillButton delete = new PillButton("ลบรายการโปรด", PillButton.DANGER);
+            if (deleteAction != null) {
+                delete.addActionListener(e -> deleteAction.run());
+            }
+            deleteRow.add(delete);
             info.add(deleteRow, BorderLayout.SOUTH);
         }
         add(info, BorderLayout.SOUTH);

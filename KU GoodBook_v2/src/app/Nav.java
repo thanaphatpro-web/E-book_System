@@ -112,6 +112,7 @@ public class Nav {
         } else if (menuName.equals("หมวดหมู่")) {
             openCategories(from);
         } else if (menuName.equals("ออกจากระบบ")) {
+            UserSession.logout();
             openLogin(from);
         }
     }

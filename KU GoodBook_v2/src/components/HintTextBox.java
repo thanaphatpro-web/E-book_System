@@ -14,6 +14,7 @@ import java.awt.*;
  * จึงไม่ถูกรวมเป็นข้อมูลที่ผู้ใช้พิมพ์ และหายไปทันทีเมื่อเริ่มเขียน</p>
  */
 public class HintTextBox extends JPanel {
+    private final JTextArea area;
 
     /**
      * สร้างกล่องข้อความที่ตัดบรรทัดให้อัตโนมัติและแสดงคำใบ้ก่อนพิมพ์
@@ -26,7 +27,7 @@ public class HintTextBox extends JPanel {
         super(new BorderLayout());
         setBackground(Theme.tile());
         setBorder(BorderFactory.createLineBorder(Theme.line()));
-        JTextArea area = new JTextArea(rows, columns) {
+        area = new JTextArea(rows, columns) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -43,4 +44,6 @@ public class HintTextBox extends JPanel {
         area.setBorder(new EmptyBorder(12, 16, 12, 16));
         add(area, BorderLayout.CENTER);
     }
+
+    public JTextArea getTextArea() { return area; }
 }

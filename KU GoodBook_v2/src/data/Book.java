@@ -47,7 +47,7 @@ public class Book {
     /** เนื้อหาของแต่ละตอน โดยลำดับต้องตรงกับ chapterTitles */
     public final ArrayList<String> chapterTexts = new ArrayList<>();
 
-    /** รีวิวตัวอย่าง แต่ละช่องเก็บชื่อผู้รีวิว คะแนน และข้อความรีวิว */
+    /** รีวิวที่โหลดจาก reviews.csv แต่ละช่องเก็บชื่อผู้รีวิว คะแนน และข้อความ */
     public final ArrayList<String[]> reviews = new ArrayList<>();
 
     /**
@@ -100,5 +100,18 @@ public class Book {
      */
     public void addReview(String name, int stars, String text) {
         reviews.add(new String[]{name, String.valueOf(stars), text});
+    }
+
+    /** คำนวณคะแนนเฉลี่ยจากรีวิวจริง ถ้ายังไม่มีรีวิวให้คืนค่า 0 */
+    public double averageReviewRating() {
+        if (reviews.isEmpty()) {
+            return 0;
+        }
+
+        int total = 0;
+        for (String[] review : reviews) {
+            total += Integer.parseInt(review[1]);
+        }
+        return (double) total / reviews.size();
     }
 }

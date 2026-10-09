@@ -38,6 +38,11 @@ public class InputField extends JPanel {
         setPreferredSize(new Dimension(200, 40));
     }
 
+    /** คืนช่องกรอกจริง เพื่อให้หน้าจออ่านข้อความไปค้นหาหรือตรวจข้อมูลได้ */
+    public JTextComponent getTextComponent() {
+        return (JTextComponent) getComponent(0);
+    }
+
     /*
      * วาดข้อความแนะนำเฉพาะตอนที่ช่องยังว่าง ข้อความนี้เป็นเพียงภาพที่วาดเพิ่ม
      * ไม่ได้ถูกใส่ลงในช่อง จึงไม่ถูกรวมไปกับข้อความที่ผู้ใช้พิมพ์
@@ -62,8 +67,13 @@ public class InputField extends JPanel {
     // ใช้ JTextField สำหรับช่องทั่วไป และวาดคำใบ้หลังวาดเนื้อหาในช่อง
     private static class TextWithHint extends JTextField {
         private final String hint;
-        TextWithHint(String hint) { this.hint = hint; }
-        @Override protected void paintComponent(Graphics g) {
+
+        TextWithHint(String hint) {
+            this.hint = hint;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             drawHint(g, this, hint);
         }
@@ -72,8 +82,13 @@ public class InputField extends JPanel {
     // ใช้ JPasswordField เพื่อไม่ให้แสดงตัวอักษรจริงบนหน้าจอ
     private static class PasswordWithHint extends JPasswordField {
         private final String hint;
-        PasswordWithHint(String hint) { this.hint = hint; }
-        @Override protected void paintComponent(Graphics g) {
+
+        PasswordWithHint(String hint) {
+            this.hint = hint;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             drawHint(g, this, hint);
         }

@@ -1,6 +1,7 @@
 package screens;
 
 import app.Nav;
+import app.UserSession;
 import components.BrandPanel;
 import components.InputField;
 import components.PillButton;
@@ -11,10 +12,10 @@ import theme.Fonts;
 import theme.Theme;
 
 /**
- * หน้าเข้าสู่ระบบตัวอย่างของแอป
+ * หน้าเข้าสู่ระบบ
  *
- * <p>หน้านี้แสดงช่องชื่อผู้ใช้และรหัสผ่าน แต่ยังไม่ตรวจข้อมูลจริง
- * กดปุ่มเข้าสู่ระบบแล้วจะไปหน้าแรกทันที จึงใช้สำหรับทดลองหน้าตาและการเปลี่ยนหน้า</p>
+ * <p>ตรวจอีเมลและรหัสผ่านจาก `data/users.csv`
+ * แล้วโหลดชื่อผู้ใช้และอีเมลของบัญชีที่เข้าสู่ระบบ</p>
  */
 public class LoginScreen extends JFrame {
 
@@ -56,21 +57,25 @@ public class LoginScreen extends JFrame {
         title.setForeground(Theme.accent());
         addRow(form, title, 4);
 
-        JLabel welcome = new JLabel("ยินดีต้อนรับกลับมา ท่านผู้เจริญ");
+        JLabel welcome = new JLabel("เข้าสู่ระบบด้วยอีเมลและรหัสผ่านที่สมัครไว้");
         welcome.setFont(Fonts.body(14));
         welcome.setForeground(Theme.muted());
         addRow(form, welcome, 22);
 
-        addRow(form, makeLabel("ชื่อผู้ใช้ หรืออีเมล"), 6);
-        addRow(form, makeField("name@example.com", false), 16);
+        addRow(form, makeLabel("อีเมล"), 6);
+        InputField emailField = makeField("name@example.com", false);
+        addRow(form, emailField, 16);
         addRow(form, makeLabel("รหัสผ่าน"), 6);
-        addRow(form, makeField("••••••••", true), 26);
+        InputField passwordField = makeField("••••••••", true);
+        addRow(form, passwordField, 26);
 
         PillButton loginButton = new PillButton("เข้าสู่ระบบ", PillButton.PRIMARY);
         loginButton.setFont(Fonts.bold(15));
         loginButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-        // ตัวอย่างนี้ยังไม่ตรวจชื่อหรือรหัสผ่าน กดแล้วเปิดหน้าแรกทันที
-        loginButton.addActionListener(e -> Nav.openHome(this));
+        // อ่านข้อมูลจากช่อง แล้วส่งให้เมธอดตรวจบัญชี
+        loginButton.addActionListener(e -> {
+            login(emailField.getTextComponent().getText(), passwordField.getTextComponent().getText());
+        });
         addRow(form, loginButton, 18);
 
         // แสดงคำถามและข้อความที่คลิกได้เพื่อไปหน้าสมัครสมาชิก
@@ -88,6 +93,26 @@ public class LoginScreen extends JFrame {
         addRow(form, link, 0);
 
         setVisible(true);
+    }
+
+    /** ตรวจบัญชี แล้วเปิดหน้าแรกเมื่อเข้าสู่ระบบสำเร็จ */
+    private void login(String email, String password) {
+        boolean isValidAccount;
+        try {
+            isValidAccount = UserSession.login(email, password);
+        } catch (IllegalStateException error) {
+            JOptionPane.showMessageDialog(this, error.getMessage(),
+                    "อ่าน users.csv ไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!isValidAccount) {
+            JOptionPane.showMessageDialog(this, "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือยังไม่มีบัญชีนี้",
+                    "เข้าสู่ระบบไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Nav.openHome(this);
     }
 
     /**

@@ -1,6 +1,7 @@
 package components;
 
 import app.Nav;
+import app.UserSession;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,8 +11,8 @@ import theme.Theme;
 /**
  * แถบเมนูด้านซ้ายที่ใช้ในหน้าแรก รายการโปรด และหมวดหมู่
  *
- * <p>เมนูของหน้าปัจจุบันจะแสดงพื้นหลังและตัวอักษรเด่นกว่ารายการอื่น
- * ส่วนชื่อและรูปผู้ใช้ด้านล่างเป็นข้อมูลตัวอย่างที่กำหนดไว้ในโค้ด</p>
+ * <p>เมนูของหน้าปัจจุบันแสดงพื้นหลังเด่นกว่ารายการอื่น และชื่อบัญชีด้านล่าง
+ * อ่านจากผู้ใช้ที่ล็อกอินอยู่</p>
  */
 public class Sidebar extends JPanel {
 
@@ -53,7 +54,6 @@ public class Sidebar extends JPanel {
         // ปุ่มและข้อมูลผู้ใช้จะอยู่ด้านล่าง แม้รายการเมนูจะมีความสูงต่างกัน
         JPanel bottom = new JPanel(new BorderLayout(0, 10));
         bottom.setOpaque(false);
-        bottom.add(new PillButton("โหมดกลางคืน", PillButton.OUTLINE), BorderLayout.NORTH);
         bottom.add(makeUserCard(), BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
     }
@@ -84,8 +84,7 @@ public class Sidebar extends JPanel {
     }
 
     /*
-     * สร้างกล่องผู้ใช้ตัวอย่างที่ด้านล่างของแถบ
-     * ข้อมูลชื่อและบทบาทตรงนี้ยังไม่ได้เชื่อมกับบัญชีผู้ใช้จริง
+     * สร้างกล่องชื่อผู้ใช้ของบัญชีที่ล็อกอินอยู่
      */
     private JComponent makeUserCard() {
         JPanel card = new JPanel(new BorderLayout(10, 0));
@@ -96,7 +95,9 @@ public class Sidebar extends JPanel {
         JPanel avatar = new JPanel(new GridBagLayout());
         avatar.setBackground(Theme.accentFill());
         avatar.setPreferredSize(new Dimension(36, 36));
-        JLabel letter = new JLabel("ม");
+        String username = UserSession.username();
+        String displayName = username.isEmpty() ? "ผู้ใช้" : username;
+        JLabel letter = new JLabel(displayName.substring(0, 1).toUpperCase());
         letter.setFont(Fonts.bold(16));
         letter.setForeground(Color.WHITE);
         avatar.add(letter);
@@ -104,10 +105,10 @@ public class Sidebar extends JPanel {
 
         JPanel names = new JPanel(new GridLayout(2, 1));
         names.setOpaque(false);
-        JLabel name = new JLabel("มินท์");
+        JLabel name = new JLabel(displayName);
         name.setFont(Fonts.bold(14));
         name.setForeground(Theme.text());
-        JLabel role = new JLabel("นักอ่าน");
+        JLabel role = new JLabel("บัญชีในเครื่อง");
         role.setFont(Fonts.body(12));
         role.setForeground(Theme.muted());
         names.add(name);

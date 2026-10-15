@@ -5,6 +5,7 @@ package ui.pages;
 // saveBook บันทึกข้อมูล; addChapter/removeChapter แก้รายการตอน; deleteCategory จัดการหมวดจากหน้านี้
 
 import app.AdminSession;
+import app.Nav;
 import books.Book;
 import books.BookData;
 import books.Chapter;
@@ -76,8 +77,7 @@ public class AdminScreen extends JFrame {
     public AdminScreen() {
         if (!AdminSession.isLoggedIn()) {
             JOptionPane.showMessageDialog(null, "กรุณาเข้าสู่ระบบแอดมินก่อน");
-            new LoginScreen();
-            dispose();
+            Nav.openLogin(this);
             return;
         }
 
@@ -121,10 +121,7 @@ public class AdminScreen extends JFrame {
 
         PillButton back = new PillButton("กลับหน้าหลัก", PillButton.OUTLINE);
         back.setPreferredSize(new Dimension(150, 42));
-        back.addActionListener(e -> {
-            new HomeScreen();
-            dispose();
-        });
+        back.addActionListener(e -> Nav.openHome(this));
         header.add(back, BorderLayout.EAST);
         return header;
     }
@@ -672,8 +669,7 @@ public class AdminScreen extends JFrame {
                         (String) status.getSelectedItem(), blurb.getText(), coverFile, chapters);
             }
             JOptionPane.showMessageDialog(this, "บันทึก “" + book.titleTh + "” เรียบร้อย");
-            new HomeScreen();
-            dispose();
+            Nav.openHome(this);
         } catch (IOException error) {
             JOptionPane.showMessageDialog(this, error.getMessage(),
                     "บันทึกหนังสือไม่สำเร็จ", JOptionPane.ERROR_MESSAGE);

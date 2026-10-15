@@ -59,6 +59,7 @@ public class Sidebar extends JPanel {
         // ปุ่มและข้อมูลผู้ใช้จะอยู่ด้านล่าง แม้รายการเมนูจะมีความสูงต่างกัน
         JPanel bottom = new JPanel(new BorderLayout(0, 10));
         bottom.setOpaque(false);
+        bottom.add(Theme.createToggleButton(), BorderLayout.NORTH);
         bottom.add(makeUserCard(), BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
     }

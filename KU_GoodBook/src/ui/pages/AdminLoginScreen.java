@@ -89,8 +89,7 @@ public class AdminLoginScreen extends JFrame {
                 JOptionPane.showMessageDialog(this, "อีเมลหรือรหัสผ่านแอดมินไม่ถูกต้อง");
                 return;
             }
-            new ui.pages.HomeScreen();
-            dispose();
+            Nav.openHome(this);
         } catch (java.io.IOException error) {
             JOptionPane.showMessageDialog(this, error.getMessage(), "เข้าสู่ระบบไม่ได้",
                     JOptionPane.ERROR_MESSAGE);

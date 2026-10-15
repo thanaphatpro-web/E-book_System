@@ -9,6 +9,7 @@ import books.Book;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.DefaultCaret;
 import ui.styles.Fonts;
 import ui.styles.Theme;
 
@@ -56,7 +57,9 @@ public class BookCard extends JPanel {
         info.setOpaque(false);
 
         // จองพื้นที่ชื่อเรื่องเท่ากันทุกใบ ทำให้ตำแหน่งข้อมูลด้านล่างเรียงตรงกัน
-        JTextArea title = new JTextArea(book.titleTh);
+        JTextArea title = new JTextArea();
+        title.setCaret(makeCardTextCaret());
+        title.setText(book.titleTh);
         title.setEditable(false);
         title.setFocusable(false);
         title.setOpaque(false);
@@ -72,7 +75,9 @@ public class BookCard extends JPanel {
         titles.setOpaque(false);
         titles.add(title, BorderLayout.NORTH);
         if (book.titleEn != null && !book.titleEn.trim().isEmpty()) {
-            JTextArea subtitle = new JTextArea(book.titleEn.trim());
+            JTextArea subtitle = new JTextArea();
+            subtitle.setCaret(makeCardTextCaret());
+            subtitle.setText(book.titleEn.trim());
             subtitle.setEditable(false);
             subtitle.setFocusable(false);
             subtitle.setOpaque(false);
@@ -96,16 +101,25 @@ public class BookCard extends JPanel {
 
         // วางคะแนนกับสถานะคนละด้านเพื่อให้อ่านเทียบข้อมูลได้สะดวก
         String ratingText = book.reviews.isEmpty() ? "ยังไม่มีคะแนน"
-                : String.format(java.util.Locale.ROOT, "★ %.1f", book.averageReviewRating());
+                : String.format(java.util.Locale.ROOT, "%.1f", book.averageReviewRating());
         JLabel rating = new JLabel(ratingText);
         rating.setFont(Fonts.bold(13));
         rating.setForeground(Theme.accent());
+        JPanel score = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        score.setOpaque(false);
+        if (!book.reviews.isEmpty()) {
+            JLabel star = new JLabel("★");
+            star.setFont(Fonts.symbol(13));
+            star.setForeground(Theme.accent());
+            score.add(star);
+        }
+        score.add(rating);
         JLabel status = new JLabel(book.status);
         status.setFont(Fonts.body(12));
         status.setForeground(Theme.muted());
         JPanel ratingRow = new JPanel(new BorderLayout());
         ratingRow.setOpaque(false);
-        ratingRow.add(rating, BorderLayout.WEST);
+        ratingRow.add(score, BorderLayout.WEST);
         ratingRow.add(status, BorderLayout.EAST);
         details.add(ratingRow);
         info.add(details, BorderLayout.CENTER);
@@ -126,5 +140,17 @@ public class BookCard extends JPanel {
 
         // คลิกการ์ดตรงไหนก็ได้เพื่อดูรายละเอียดของหนังสือที่การ์ดนี้แทน
         Nav.onClick(this, () -> Nav.openDetail(this, book));
+    }
+
+    /** ข้อความบนการ์ดไม่ควรดึงพื้นที่เลื่อนให้ตาม caret เมื่อจัดวางใหม่ */
+    private static DefaultCaret makeCardTextCaret() {
+        DefaultCaret caret = new DefaultCaret() {
+            @Override
+            protected void adjustVisibility(Rectangle location) {
+                // ให้พื้นที่เลื่อนควบคุมโดยผู้ใช้ แทนการเลื่อนตามชื่อของการ์ดแต่ละใบ
+            }
+        };
+        caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
+        return caret;
     }
 }

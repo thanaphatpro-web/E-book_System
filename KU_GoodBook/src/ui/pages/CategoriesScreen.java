@@ -29,7 +29,7 @@ import ui.styles.Theme;
 public class CategoriesScreen extends JFrame {
 
     /** ชื่อหมวดที่ต้องการแสดงบนหน้านี้ */
-    private static final String[] NAMES = {"ทั้งหมด", "วรรณกรรม", "แฟนตาซี", "ปรัชญา", "ทั่วไป", "การศึกษา"};
+    private static final String[] NAMES = {"ทั้งหมด"};
 
     /** ช่องค้นหาหมวด หนังสือ และผู้แต่ง */
     private final InputField search = new InputField("ค้นหาหมวด หนังสือ หรือผู้แต่ง", false);

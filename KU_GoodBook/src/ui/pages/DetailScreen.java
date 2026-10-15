@@ -182,7 +182,7 @@ public class DetailScreen extends JFrame {
         metadata.add(metaRow);
 
         JLabel star = new JLabel(book.reviews.isEmpty() ? "" : "★");
-        star.setFont(new Font(Font.DIALOG, Font.BOLD, 14));
+        star.setFont(Fonts.symbol(14));
         star.setForeground(Theme.accent());
         JLabel rating = new JLabel(book.reviews.isEmpty() ? "ยังไม่มีคะแนน"
                 : String.format(java.util.Locale.ROOT, "%.1f", book.averageReviewRating()));
@@ -312,7 +312,7 @@ public class DetailScreen extends JFrame {
         int ratedCount = book.ratedReviewCount();
         JLabel bigStars = new JLabel(ratedCount == 0 ? ""
                 : stars((int) Math.round(book.averageReviewRating())));
-        bigStars.setFont(new Font(Font.DIALOG, Font.PLAIN, 28));
+        bigStars.setFont(Fonts.symbol(28));
         bigStars.setForeground(Theme.gold());
         JLabel score = new JLabel(ratedCount == 0 ? "—"
                 : String.format(java.util.Locale.ROOT, "%.1f", book.averageReviewRating()));
@@ -376,7 +376,7 @@ public class DetailScreen extends JFrame {
         // แอดมินส่งความคิดเห็นแบบไม่มีคะแนน ใช้ป้ายตัวอักษรเพื่อเลี่ยงปัญหาฟอนต์
         JLabel starLabel = new JLabel(starCount == 0 ? "ADMIN" : stars(starCount));
         starLabel.setFont(starCount == 0 ? Fonts.bold(11)
-                : new Font(Font.DIALOG, Font.PLAIN, 13));
+                : Fonts.symbol(13));
         starLabel.setForeground(Theme.gold());
         if (starCount == 0) {
             starLabel.setBorder(BorderFactory.createCompoundBorder(
@@ -445,7 +445,11 @@ public class DetailScreen extends JFrame {
         PillButton[] starButtons = new PillButton[5];
         for (int n = 1; !isAdmin && n <= 5; n++) {
             final int rating = n;
-            PillButton star = new PillButton("☆ " + n + " ดาว", PillButton.OUTLINE);
+            // แยกดาวเป็นไอคอนตัวอักษร เพื่อใช้ Fonts.symbol โดยไม่เปลี่ยนฟอนต์ไทย
+            PillButton star = new PillButton(n + " ดาว", PillButton.OUTLINE);
+            star.setIcon(makeRatingStarIcon("☆"));
+            star.setSelectedIcon(makeRatingStarIcon("★"));
+            star.setIconTextGap(5);
             starButtons[n - 1] = star;
             star.setToolTipText("ให้คะแนน " + n + " ดาว");
             star.addActionListener(e -> {
@@ -454,7 +458,7 @@ public class DetailScreen extends JFrame {
                 selectedLabel.setText("เลือกแล้ว " + rating + " ดาว");
                 for (int i = 0; i < starButtons.length; i++) {
                     boolean selected = i + 1 == rating;
-                    starButtons[i].setText((selected ? "★ " : "☆ ") + (i + 1) + " ดาว");
+                    starButtons[i].setSelected(selected);
                     starButtons[i].setForeground(selected ? Theme.accent() : Theme.text());
                 }
             });
@@ -501,6 +505,35 @@ public class DetailScreen extends JFrame {
         form.add(sendRow, BorderLayout.SOUTH);
         card.add(form, BorderLayout.CENTER);
         return card;
+    }
+
+    /** แสดงดาวด้วยฟอนต์สัญลักษณ์ แยกจากข้อความไทยบนปุ่มเดียวกัน */
+    private static Icon makeRatingStarIcon(String glyph) {
+        JLabel label = new JLabel(glyph, SwingConstants.CENTER);
+        label.setFont(Fonts.symbol(13));
+        FontMetrics metrics = label.getFontMetrics(label.getFont());
+        int width = Math.max(metrics.stringWidth("★"), metrics.stringWidth("☆"));
+        int height = metrics.getHeight();
+        label.setSize(width, height);
+        return new Icon() {
+            @Override
+            public int getIconWidth() {
+                return width;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return height;
+            }
+
+            @Override
+            public void paintIcon(Component component, Graphics graphics, int x, int y) {
+                label.setForeground(component.getForeground());
+                Graphics copy = graphics.create(x, y, width, height);
+                label.paint(copy);
+                copy.dispose();
+            }
+        };
     }
 
     /** แสดงข้อความแทนฟอร์ม ถ้ายังอ่านและทำเครื่องหมายครบทุกตอนไม่ได้ */

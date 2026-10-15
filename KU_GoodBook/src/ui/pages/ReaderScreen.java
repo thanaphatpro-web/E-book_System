@@ -91,16 +91,10 @@ public class ReaderScreen extends JFrame {
         tools.setOpaque(false);
         PillButton smaller = new PillButton("A-", PillButton.OUTLINE);
         PillButton larger = new PillButton("A+", PillButton.OUTLINE);
-        PillButton night = new PillButton(Theme.dark ? "โหมดกลางวัน" : "โหมดกลางคืน", PillButton.OUTLINE);
+        JButton night = Theme.createToggleButton();
         // ปรับตัวอักษรครั้งละสองพอยต์
         smaller.addActionListener(e -> changeFont(-2));
         larger.addActionListener(e -> changeFont(2));
-        // เปลี่ยนชุดสี แล้วสร้างหน้าผู้อ่านใหม่เพื่อใช้สีตามโหมด
-        night.addActionListener(e -> {
-            Theme.dark = !Theme.dark;
-            new ReaderScreen(book, chapterIndex);
-            dispose();
-        });
         tools.add(smaller);
         tools.add(larger);
         tools.add(night);
@@ -168,6 +162,8 @@ public class ReaderScreen extends JFrame {
             doc.insertString(0, book.chapterTexts.get(chapterIndex), style);
             // ใช้รูปแบบย่อหน้ากับข้อความทั้งหมดที่เพิ่งใส่ลงในเอกสาร
             doc.setParagraphAttributes(0, doc.getLength(), style, false);
+            // การแทรกข้อความย้าย caret ไปท้ายตอน ต้องกลับมาจุดเริ่มต้นก่อนแสดง
+            text.setCaretPosition(0);
         } catch (BadLocationException e) {
             throw new IllegalStateException("ไม่สามารถแสดงเนื้อหาตอนได้", e);
         }
@@ -211,6 +207,9 @@ public class ReaderScreen extends JFrame {
         });
         // ถ้าเนื้อหาสั้นและแสดงได้ครบโดยไม่ต้องเลื่อน ให้บันทึกหลังจัดวางหน้าเสร็จ
         SwingUtilities.invokeLater(() -> {
+            // ยืนยันตำแหน่งบนสุดอีกครั้งหลัง Swing จัดวางพื้นที่อ่านแล้ว
+            text.setCaretPosition(0);
+            scroll.getViewport().setViewPosition(new Point(0, 0));
             JScrollBar bar = scroll.getVerticalScrollBar();
             if (!alreadyRead[0] && bar.getMaximum() <= bar.getVisibleAmount()) {
                 saveReadStatus(readStatus, alreadyRead);

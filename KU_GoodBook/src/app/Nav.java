@@ -8,7 +8,9 @@ import books.Book;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.function.Supplier;
 import javax.swing.*;
+import ui.pages.AdminScreen;
 import ui.pages.CategoriesScreen;
 import ui.pages.DetailScreen;
 import ui.pages.FavoritesScreen;
@@ -35,8 +37,7 @@ public class Nav {
      * @param from ส่วนบนหน้าจอเดิมที่ผู้ใช้กด เช่น ปุ่มหรือเมนู
      */
     public static void openHome(Component from) {
-        new HomeScreen();
-        close(from);
+        switchWindow(from, HomeScreen::new);
     }
 
     /**
@@ -45,8 +46,7 @@ public class Nav {
      * @param from ส่วนบนหน้าจอเดิมที่ผู้ใช้กด เช่น ปุ่มหรือเมนู
      */
     public static void openFavorites(Component from) {
-        new FavoritesScreen();
-        close(from);
+        switchWindow(from, FavoritesScreen::new);
     }
 
     /**
@@ -55,8 +55,7 @@ public class Nav {
      * @param from ส่วนบนหน้าจอเดิมที่ผู้ใช้กด เช่น ปุ่มหรือเมนู
      */
     public static void openCategories(Component from) {
-        new CategoriesScreen();
-        close(from);
+        switchWindow(from, CategoriesScreen::new);
     }
 
     /**
@@ -65,8 +64,7 @@ public class Nav {
      * @param from ส่วนบนหน้าจอเดิมที่ผู้ใช้กด เช่น ปุ่มหรือลิงก์
      */
     public static void openLogin(Component from) {
-        new LoginScreen();
-        close(from);
+        switchWindow(from, LoginScreen::new);
     }
 
     /**
@@ -75,8 +73,16 @@ public class Nav {
      * @param from ส่วนบนหน้าจอเดิมที่ผู้ใช้กด เช่น ปุ่มหรือลิงก์
      */
     public static void openRegister(Component from) {
-        new RegisterScreen();
-        close(from);
+        switchWindow(from, RegisterScreen::new);
+    }
+
+    /** เปิดหน้าจัดการหนังสือ โดยรักษาสถานะและขนาดหน้าต่างเดิม */
+    public static void openAdmin(Component from) {
+        if (!AdminSession.isLoggedIn()) {
+            openLogin(from);
+            return;
+        }
+        switchWindow(from, AdminScreen::new);
     }
 
     /**
@@ -86,8 +92,7 @@ public class Nav {
      * @param book ข้อมูลหนังสือที่จะส่งไปแสดง
      */
     public static void openDetail(Component from, Book book) {
-        new DetailScreen(book);
-        close(from);
+        switchWindow(from, () -> new DetailScreen(book));
     }
 
     /**
@@ -98,8 +103,7 @@ public class Nav {
      * @param chapterIndex ตำแหน่งของตอนในรายการ โดยตำแหน่งแรกคือ 0
      */
     public static void openReader(Component from, Book book, int chapterIndex) {
-        new ReaderScreen(book, chapterIndex);
-        close(from);
+        switchWindow(from, () -> new ReaderScreen(book, chapterIndex));
     }
 
     /**
@@ -139,6 +143,28 @@ public class Nav {
         });
     }
 
+    /** ส่งต่อสถานะขยาย หรือขนาดและตำแหน่งของหน้าต่างปกติ ก่อนปิดหน้าเดิม */
+    private static void switchWindow(Component from, Supplier<? extends JFrame> factory) {
+        Window source = from instanceof Window ? (Window) from
+                : (from == null ? null : SwingUtilities.getWindowAncestor(from));
+        boolean inherit = source instanceof Frame && source.isDisplayable();
+        int state = inherit ? ((Frame) source).getExtendedState() & ~Frame.ICONIFIED
+                : Frame.NORMAL;
+        Rectangle bounds = inherit ? source.getBounds() : null;
+
+        JFrame target = factory.get();
+        if (inherit) {
+            if ((state & Frame.MAXIMIZED_BOTH) == 0) {
+                target.setBounds(bounds);
+            } else {
+                // วางบนจอเดียวกับหน้าเดิมก่อนขยาย โดยไม่ใช้ขนาดเต็มจอเป็นขนาดปกติ
+                target.setLocation(bounds.x, bounds.y);
+            }
+            target.setExtendedState(state);
+        }
+        close(from);
+    }
+
     /**
      * หาหน้าต่างที่ครอบส่วนต้นทาง แล้วปิดหน้าต่างนั้น
      * ถ้าหาหน้าต่างไม่พบ จะข้ามการปิดเพื่อไม่ให้เกิดข้อผิดพลาด
@@ -147,8 +173,10 @@ public class Nav {
         Window window;
         if (from instanceof Window) {
             window = (Window) from;
-        } else {
+        } else if (from != null) {
             window = SwingUtilities.getWindowAncestor(from);
+        } else {
+            window = null;
         }
         if (window != null) {
             window.dispose();

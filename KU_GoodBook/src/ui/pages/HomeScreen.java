@@ -110,7 +110,7 @@ public class HomeScreen extends JFrame {
         JPanel headingRow = new JPanel(new BorderLayout());
         headingRow.setOpaque(false);
         headingRow.add(heading, BorderLayout.WEST);
-        JComboBox<String> sortBox = new JComboBox<>(new String[]{"ลำดับเดิม", "ชื่อเรื่อง A-Z", "คะแนนรีวิวสูงสุด"});
+        JComboBox<String> sortBox = new JComboBox<>(new String[]{"ลำดับเดิม", "ชื่อเรื่อง ก-ฮ", "คะแนนรีวิวสูงสุด"});
         sortBox.setFont(Fonts.body(13));
         sortBox.addActionListener(e -> {
             sort = (String) sortBox.getSelectedItem();
@@ -156,6 +156,8 @@ public class HomeScreen extends JFrame {
                 updateGridColumns(scroll.getViewport().getWidth());
             }
         });
+        // ทำครั้งเดียวเมื่อเปิดหน้าใหม่ หลังจัดวางการ์ดและแถบเลื่อนแล้ว
+        SwingUtilities.invokeLater(() -> scroll.getViewport().setViewPosition(new Point(0, 0)));
         return scroll;
     }
 
@@ -216,10 +218,7 @@ public class HomeScreen extends JFrame {
         content.add(Box.createVerticalStrut(8));
         content.add(text);
         card.add(content);
-        Nav.onClick(card, () -> {
-            new AdminScreen();
-            dispose();
-        });
+        Nav.onClick(card, () -> Nav.openAdmin(this));
         return card;
     }
 

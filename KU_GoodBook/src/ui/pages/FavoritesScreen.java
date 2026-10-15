@@ -84,7 +84,7 @@ public class FavoritesScreen extends JFrame {
 
         JPanel sortRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         sortRow.setOpaque(false);
-        JComboBox<String> sortBox = new JComboBox<>(new String[]{"ลำดับเดิม", "ชื่อเรื่อง A-Z", "คะแนนรีวิวสูงสุด"});
+        JComboBox<String> sortBox = new JComboBox<>(new String[]{"ลำดับเดิม", "ชื่อเรื่อง ก-ฮ", "คะแนนรีวิวสูงสุด"});
         sortBox.addActionListener(e -> {
             sort = (String) sortBox.getSelectedItem();
             refresh();
@@ -131,6 +131,8 @@ public class FavoritesScreen extends JFrame {
         main.add(scroll, BorderLayout.CENTER);
 
         setVisible(true);
+        // ทำครั้งเดียวเมื่อเปิดหน้าใหม่ ไม่รบกวนตำแหน่งเมื่อผู้ใช้เลื่อนเอง
+        SwingUtilities.invokeLater(() -> scroll.getViewport().setViewPosition(new Point(0, 0)));
     }
 
     /** แสดงสามคอลัมน์บนจอกว้าง สองคอลัมน์บนจอทั่วไป และหนึ่งคอลัมน์บนจอแคบ */

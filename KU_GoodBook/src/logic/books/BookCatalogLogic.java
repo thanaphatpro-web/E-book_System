@@ -72,7 +72,7 @@ public final class BookCatalogLogic {
         for (int i = 0; i < books.size(); i++) {
             for (int j = i + 1; j < books.size(); j++) {
                 boolean shouldSwap = false;
-                if ("ชื่อเรื่อง A-Z".equals(sort)) {
+                if ("ชื่อเรื่อง ก-ฮ".equals(sort)) {
                     shouldSwap = books.get(i).titleTh.compareTo(books.get(j).titleTh) > 0;
                 } else if ("คะแนนรีวิวสูงสุด".equals(sort)) {
                     shouldSwap = books.get(i).averageReviewRating()

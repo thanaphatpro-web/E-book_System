@@ -1,0 +1,102 @@
+package ui.styles;
+
+// ไกด์ไฟล์: หน้าที่: รวมฟอนต์ของแอปไว้ให้ทุกหน้าหยิบใช้ร่วมกัน
+// title/body/bold/read คืนฟอนต์ตามบทบาท; symbol คืนฟอนต์สำหรับ ★☆✓; install เตรียมฟอนต์ก่อนแสดงหน้าจอ
+// แก้ชื่อฟอนต์หรือค่าพื้นฐานที่นี่ แล้วตรวจผลในหน้าและปุ่มที่เรียกใช้
+
+import java.awt.Font;
+import java.util.Enumeration;
+import javax.swing.UIManager;
+import javax.swing.plaf.FontUIResource;
+
+/** เลือกฟอนต์ในเครื่องที่แสดงภาษาไทยได้ โดยไม่ต้องเพิ่มไฟล์ฟอนต์ */
+public final class Fonts {
+    /** ข้อความทดสอบภาษาไทย (สระบน สระล่าง วรรณยุกต์ซ้อน) พร้อมอังกฤษและตัวเลข */
+    private static final String THAI_SAMPLE = "ภาษาไทย น้ำ ผู้ใช้ กุ้ง เก้าอี้ ฤๅ English 0123456789";
+
+    /** ข้อความทดสอบสัญลักษณ์ที่แอปใช้ */
+    private static final String SYMBOL_SAMPLE = "★☆✓";
+
+    /** ใช้ตระกูลเดียวกันทั้งข้อความปกติ ตัวหนา และหน้าอ่าน */
+    private static final String FAMILY;
+
+    /** ฟอนต์แยกสำหรับสัญลักษณ์ เพราะฟอนต์ไทยส่วนใหญ่ไม่มี ★☆✓ */
+    private static final String SYMBOL_FAMILY;
+
+    static {
+        FAMILY = pick(new String[]{"Tahoma", "Leelawadee UI", "Noto Sans Thai", "Sarabun",
+                "Thonburi", "Arial Unicode MS", Font.SANS_SERIF, Font.DIALOG},
+                THAI_SAMPLE, Font.DIALOG);
+        SYMBOL_FAMILY = pick(new String[]{"Segoe UI Symbol", "Arial Unicode MS", Font.DIALOG},
+                SYMBOL_SAMPLE, Font.DIALOG);
+    }
+
+    private Fonts() {
+    }
+
+    /** คืนชื่อฟอนต์แรกที่มีในเครื่องและแสดงข้อความทดสอบได้ครบทั้งตัวปกติและตัวหนา */
+    private static String pick(String[] candidates, String sample, String fallback) {
+        for (String candidate : candidates) {
+            Font plain = new Font(candidate, Font.PLAIN, 14);
+            Font bold = new Font(candidate, Font.BOLD, 14);
+            // Java อาจแทนชื่อฟอนต์ที่ไม่มีด้วย Dialog จึงตรวจชื่อและอักขระด้วย
+            if (plain.getFamily().equalsIgnoreCase(candidate)
+                    && plain.canDisplayUpTo(sample) == -1
+                    && bold.canDisplayUpTo(sample) == -1) {
+                return candidate;
+            }
+        }
+        return fallback;
+    }
+
+    /** คืนฟอนต์ขนาดใหญ่สำหรับหัวข้อ */
+    public static Font title(float size) {
+        return new Font(FAMILY, Font.PLAIN, Math.round(size));
+    }
+
+    /** คืนฟอนต์ปกติสำหรับข้อความทั่วไป */
+    public static Font body(float size) {
+        return new Font(FAMILY, Font.PLAIN, Math.round(size));
+    }
+
+    /** คืนฟอนต์ตัวหนาสำหรับป้ายและปุ่ม */
+    public static Font bold(float size) {
+        return new Font(FAMILY, Font.BOLD, Math.round(size));
+    }
+
+    /** คืนฟอนต์สำหรับเนื้อหาหนังสือ */
+    public static Font read(float size) {
+        return new Font(FAMILY, Font.PLAIN, Math.round(size));
+    }
+
+    /** คืนฟอนต์สำหรับป้ายที่เป็นสัญลักษณ์ล้วน เช่น ดาวให้คะแนน เครื่องหมายถูก (ห้ามผสมกับข้อความไทย) */
+    public static Font symbol(float size) {
+        return new Font(SYMBOL_FAMILY, Font.PLAIN, Math.round(size));
+    }
+
+    /** ตั้งฟอนต์มาตรฐานให้ส่วนประกอบ Swing ก่อนสร้างหน้าจอ */
+    public static void install() {
+        FontUIResource standardFont = new FontUIResource(body(14));
+        Enumeration<Object> keys = UIManager.getDefaults().keys();
+        while (keys.hasMoreElements()) {
+            Object key = keys.nextElement();
+            if (UIManager.get(key) instanceof FontUIResource) {
+                UIManager.put(key, standardFont);
+            }
+        }
+    }
+
+    /** ตัวช่วยตรวจฟอนต์ในเครื่อง รันแล้วลบทิ้งได้เมื่อไม่ต้องใช้ */
+    public static void main(String[] args) {
+        System.out.println(System.getProperty("os.name") + " / Java " + System.getProperty("java.version"));
+        System.out.println("ฟอนต์ไทยที่เลือก: " + FAMILY);
+        System.out.println("ฟอนต์สัญลักษณ์ที่เลือก: " + SYMBOL_FAMILY);
+        String thai = "ภาษาไทย น้ำ ผู้ใช้ กุ้ง เก้าอี้ ฤๅ";
+        for (String n : new String[]{"Arial Unicode MS", "Tahoma", "Leelawadee UI", "Noto Sans Thai",
+                "Segoe UI Symbol", Font.SANS_SERIF, Font.DIALOG}) {
+            Font f = new Font(n, Font.PLAIN, 14);
+            System.out.printf("%-18s family=%-16s thai=%d symbol=%d%n",
+                    n, f.getFamily(), f.canDisplayUpTo(thai), f.canDisplayUpTo(SYMBOL_SAMPLE));
+        }
+    }
+}
